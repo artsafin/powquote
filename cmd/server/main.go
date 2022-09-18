@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"powquote/internal/protocol"
@@ -14,9 +15,19 @@ import (
 
 var nonces = puzzle.NewNonceGenerator(time.Minute * 5)
 
-var complexity = 6
+var complexity = 5
 
 var ioTimeout = time.Second * 30
+
+func init() {
+	if complexityVar := os.Getenv("COMPLEXITY"); complexityVar != "" {
+		if val, err := strconv.ParseInt(complexityVar, 10, 32); err != nil {
+			panic("COMPLEXITY variable is set but incorrect; should be integer")
+		} else {
+			complexity = int(val)
+		}
+	}
+}
 
 func main() {
 	listen := os.Getenv("LISTEN")
@@ -82,7 +93,7 @@ func handleConnection(conn net.Conn) {
 		writeResponse(conn, challenge.Bytes())
 	case protocol.QuoteRequest:
 		log.Printf("(%v) quote request", conn.RemoteAddr())
-		if err := puzzle.SolutionValid(challenge, conn.LocalAddr(), req); err == nil {
+		if err := puzzle.SolutionValid(challenge, conn.LocalAddr(), conn.RemoteAddr(), req); err == nil {
 			log.Printf("(%v) solution correct %v", conn.RemoteAddr(), puzzle.Hash(&req.HashData))
 			writeResponse(conn, []byte(quotes.Next()))
 		} else {

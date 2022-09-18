@@ -1,11 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"math/rand"
 	"net"
+	"net/netip"
 	"os"
+	"strconv"
 	"time"
 
 	"powquote/internal/protocol"
@@ -15,12 +18,18 @@ import (
 var ioTimeout = time.Second * 10
 
 func main() {
-	serverAddr := os.Getenv("SERVER")
-	if serverAddr == "" {
-		panic("SERVER variable must point to a server")
+	verboseVar := os.Getenv("VERBOSE")
+	verbose, err := strconv.ParseBool(verboseVar)
+	if err != nil {
+		verbose = true
 	}
 
-	clientID, err := getLocalIP(serverAddr)
+	serverAddr := os.Getenv("SERVER")
+	if serverAddr == "" {
+		log.Fatal("SERVER variable must point to a server")
+	}
+
+	clientID, serverID, err := getIPs(serverAddr)
 	if err != nil {
 		log.Fatalf("unable to detect client id: %v", err)
 	}
@@ -35,7 +44,9 @@ func main() {
 		log.Fatalf("error parsing challenge: %v", err)
 	}
 
-	log.Println("solving challenge from server:", challenge)
+	if verbose {
+		log.Println("solving challenge from server:", challenge)
+	}
 
 	clientNonce := puzzle.GenerateNonceOnce()
 
@@ -46,30 +57,37 @@ func main() {
 	}
 
 	goodhash := solve(&hashData, challenge)
-	log.Printf("found solution: %v", goodhash)
+	if verbose {
+		log.Printf("found solution: %v", goodhash)
+	}
 
 	quoteReq := protocol.QuoteRequest{
-		ServerID: serverAddr,
+		ServerID: serverID,
 		HashData: hashData,
 	}
-	log.Printf("making quote request: %q", quoteReq.Bytes())
+	if verbose {
+		log.Printf("making quote request: %q", quoteReq.Bytes())
+	}
 	quote, err := say(serverAddr, quoteReq.Bytes())
 	if err != nil {
 		log.Fatalf("error sending solution: %v", err)
 	}
 
-	log.Printf("(👉ﾟヮﾟ)👉 %s", quote)
+	if verbose {
+		log.Printf("(👉ﾟヮﾟ)👉 %s", quote)
+	} else {
+		fmt.Printf("%s", quote)
+	}
 }
 
 func solve(hashData *protocol.HashData, challenge protocol.Challenge) string {
-	randBs := make([]byte, 64)
 	var lasthash string
 
+	rand.Seed(time.Now().UnixNano())
+	hashData.Solution = make([]byte, 128)
+
 	for {
-		if _, err := rand.Read(randBs); err != nil {
-			log.Fatalf("error generating solution: %v", err)
-		}
-		hashData.Solution = randBs
+		_, _ = rand.Read(hashData.Solution)
 		lasthash = puzzle.Hash(hashData)
 		if puzzle.HashMatchesChallenge(lasthash, challenge) {
 			break
@@ -78,14 +96,20 @@ func solve(hashData *protocol.HashData, challenge protocol.Challenge) string {
 	return lasthash
 }
 
-func getLocalIP(serverAddr string) (string, error) {
+func getIPs(serverAddr string) (string, string, error) {
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	defer conn.Close()
+	defer func(){
+		_ = conn.Close()
+	}()
 
-	return conn.LocalAddr().String(), nil
+	locAddr, err := netip.ParseAddrPort(conn.LocalAddr().String())
+	if err != nil {
+		return "", "", err
+	}
+	return locAddr.Addr().String(), conn.RemoteAddr().String(), nil
 }
 
 func say(serverAddr string, what []byte) ([]byte, error) {

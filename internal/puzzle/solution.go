@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"sync"
 
@@ -21,9 +22,21 @@ type solutionAttempt struct {
 var solutionAttempts = make(map[solutionAttempt]struct{})
 var attemptsMutex sync.Mutex
 
-func SolutionValid(challenge protocol.Challenge, serverAddr net.Addr, req protocol.QuoteRequest) error {
+func stripPort(addr net.Addr) string {
+	addrPort, err := netip.ParseAddrPort(addr.String())
+	if err != nil {
+		return addr.String()
+	}
+
+	return addrPort.Addr().String()
+}
+
+func SolutionValid(challenge protocol.Challenge, serverAddr net.Addr, clientAddr net.Addr, req protocol.QuoteRequest) error {
 	if req.ServerID != serverAddr.String() {
 		return fmt.Errorf("server addr: %v != %v", req.ServerID, serverAddr.String())
+	}
+	if req.ClientID != stripPort(clientAddr) {
+		return fmt.Errorf("client addr: %v != %v", req.ClientID, clientAddr.String())
 	}
 	if req.NonceServer != challenge.Nonce {
 		return fmt.Errorf("server nonce: %v != %v", req.NonceServer, challenge.Nonce)
