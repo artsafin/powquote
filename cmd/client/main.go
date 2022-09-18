@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 	"net/netip"
 	"os"
@@ -56,7 +55,7 @@ func main() {
 		NonceClient: clientNonce,
 	}
 
-	goodhash := solve(&hashData, challenge)
+	goodhash := puzzle.Solve(&hashData, challenge)
 	if verbose {
 		log.Printf("found solution: %v", goodhash)
 	}
@@ -78,22 +77,6 @@ func main() {
 	} else {
 		fmt.Printf("%s", quote)
 	}
-}
-
-func solve(hashData *protocol.HashData, challenge protocol.Challenge) string {
-	var lasthash string
-
-	rand.Seed(time.Now().UnixNano())
-	hashData.Solution = make([]byte, 128)
-
-	for {
-		_, _ = rand.Read(hashData.Solution)
-		lasthash = puzzle.Hash(hashData)
-		if puzzle.HashMatchesChallenge(lasthash, challenge) {
-			break
-		}
-	}
-	return lasthash
 }
 
 func getIPs(serverAddr string) (string, string, error) {

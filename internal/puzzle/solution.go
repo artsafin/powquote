@@ -36,7 +36,7 @@ func SolutionValid(challenge protocol.Challenge, serverAddr net.Addr, clientAddr
 		return fmt.Errorf("server addr: %v != %v", req.ServerID, serverAddr.String())
 	}
 	if req.ClientID != stripPort(clientAddr) {
-		return fmt.Errorf("client addr: %v != %v", req.ClientID, clientAddr.String())
+		return fmt.Errorf("client addr: %v != %v", req.ClientID, stripPort(clientAddr))
 	}
 	if req.NonceServer != challenge.Nonce {
 		return fmt.Errorf("server nonce: %v != %v", req.NonceServer, challenge.Nonce)
@@ -81,6 +81,10 @@ func Hash(req *protocol.HashData) string {
 
 func HashMatchesChallenge(hash string, challenge protocol.Challenge) bool {
 	runes := []rune(hash)
+
+	if challenge.Complexity <= 0 {
+		return true
+	}
 
 	if len(runes) < challenge.Complexity {
 		return false

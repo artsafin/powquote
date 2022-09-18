@@ -29,7 +29,7 @@ For the sake of the test task simplicity:
 - server does not change complexity dynamically depending on it's load 
 - requests and responses are not signed
 - client doesn't take into account server nonce timeout
-- client doesn't retry if the solution is invalid (e.g. because of the previous point)
+- client doesn't retry if the solution is invalid (e.g. because of the previous point or server was restarted)
 
 ## Runtime configuration
 
@@ -43,3 +43,5 @@ For the sake of the test task simplicity:
 ### Client
 
 `SERVER` - address of the server (required)
+
+`VERBOSE` - address of the server (required)

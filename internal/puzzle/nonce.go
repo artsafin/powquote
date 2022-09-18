@@ -34,7 +34,7 @@ func (n *nonceGenerator) tick() {
 	n.value.Store(v.Uint64())
 }
 func (n *nonceGenerator) Current() uint64 {
-	if v := n.value.Load().(uint64); v == 0 {
+	if v, ok := n.value.Load().(uint64); !ok || v == 0 {
 		n.tick()
 	}
 	return n.value.Load().(uint64)

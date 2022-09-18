@@ -28,5 +28,8 @@ run-client: build-client
 	@docker run --rm \
 		--network="powquote-network" \
 		-e "SERVER=quoteserver:9999" \
-		-e "VERBOSE=0" \
+		-e "VERBOSE=1" \
 		$(CLIENT_IMAGE)
+
+tests:
+	go test -race -cover ./...
